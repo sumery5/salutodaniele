@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Costellazione 3D dei Ricordi — Daniele Mangano</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=zodiak@400,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --color-bg:#04050a; --color-text:#f1efe6; --color-text-muted:#a6acb8;
+  --color-primary:#f0e2ae; --color-primary-glow:rgba(240,226,174,.55);
+  --font-display:'Zodiak',Georgia,serif; --font-body:'General Sans',Inter,sans-serif;
+  --font-finale:'Cormorant Garamond', serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);overflow-x:hidden;}
+#canvas3d{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:0;display:block;}
+
+.scroll-spacer{position:relative;z-index:1;}
+.wall-header{max-width:640px;margin:0 auto;padding:88px 24px 24px;position:relative;opacity:0;transition:opacity 1s ease .3s;}
+.wall-header.revealed{opacity:1;}
+.wall-header .eyebrow{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-primary);font-weight:600;display:block;margin-bottom:14px;}
+.wall-header h1{font-family:var(--font-display);font-size:clamp(2rem,4vw,3.2rem);font-weight:500;line-height:1.1;margin-bottom:16px;}
+.wall-header p{color:var(--color-text-muted);font-size:16px;line-height:1.6;max-width:52ch;}
+
+#cards-layer{position:fixed;top:0;left:0;width:100%;height:100vh;z-index:2;pointer-events:none;overflow:hidden;}
+
+.orb{
+  position:absolute;
+  width:min(300px,72vw);
+  transform:translate(-50%,0);
+  transform-origin:top center;
+  opacity:0;
+  pointer-events:auto;
+  transition:opacity .25s linear;
+  text-align:center;
+  padding-top:36px;
+}
+.orb-halo{
+  position:absolute;top:0;left:50%;width:220px;height:220px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle, var(--color-primary-glow) 0%, rgba(240,226,174,.08) 45%, transparent 70%);
+  filter:blur(2px);
+  pointer-events:none;
+  z-index:-1;
+}
+.orb-name{
+  font-family:var(--font-display);
+  font-size:14px;
+  letter-spacing:.04em;
+  color:var(--color-primary);
+  margin-bottom:14px;
+  text-shadow:0 0 12px rgba(240,226,174,.6);
+}
+.orb-quote{
+  font-family:var(--font-display);
+  font-size:16px;
+  line-height:1.45;
+  font-weight:400;
+  color:#fdfcf7;
+  text-shadow:0 2px 20px rgba(0,0,0,.9), 0 0 40px rgba(0,0,0,.6);
+}
+
+.finale{
+  position:absolute;
+  width:min(720px,88vw);
+  transform:translate(-50%,-50%);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .6s ease;
+  text-align:center;
+}
+.finale-halo{
+  position:absolute;top:50%;left:50%;width:520px;height:520px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(240,226,174,.4) 0%, rgba(240,226,174,.1) 40%, transparent 70%);
+  filter:blur(6px);
+  z-index:-1;
+}
+.finale-line1{
+  font-family:var(--font-finale);
+  font-style:italic;
+  font-weight:500;
+  font-size:clamp(22px,3.4vw,32px);
+  color:var(--color-primary);
+  letter-spacing:.02em;
+  text-shadow:0 0 30px rgba(240,226,174,.7);
+  margin-bottom:18px;
+}
+.finale-line2{
+  font-family:var(--font-finale);
+  font-weight:600;
+  font-size:clamp(30px,5vw,48px);
+  color:#fffaf0;
+  letter-spacing:.03em;
+  text-shadow:0 0 40px rgba(255,250,240,.5), 0 4px 30px rgba(0,0,0,.8);
+  margin-bottom:20px;
+}
+.finale-line3{
+  font-family:var(--font-finale);
+  font-style:italic;
+  font-size:clamp(16px,2vw,20px);
+  color:var(--color-text-muted);
+  letter-spacing:.03em;
+}
+
+.scroll-hint{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:3;color:var(--color-text-muted);
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;transition:opacity 1s ease .5s;}
+.scroll-hint.revealed{opacity:.85;}
+.scroll-hint svg{animation:bounce 1.8s ease-in-out infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(8px);}}
+
+.wall-footer{position:relative;z-index:2;text-align:center;color:var(--color-text-muted);font-size:14px;padding:40px 24px;opacity:0;transition:opacity 1s ease .3s;}
+.wall-footer.revealed{opacity:1;}
+.empty-state{max-width:420px;margin:0 auto;text-align:center;color:var(--color-text-muted);position:relative;z-index:2;padding:120px 24px;}
+.empty-state h3{font-family:var(--font-display);color:var(--color-text);font-size:22px;margin-bottom:8px;}
+
+@media (prefers-reduced-motion: reduce){
+  .orb, .finale{transition:none !important;}
+  .scroll-hint svg{animation:none !important;}
+}
+
+#loadingOverlay{
+  position:fixed;inset:0;z-index:50;
+  background:transparent;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  transition:opacity 1s ease, visibility 1s ease;
+}
+#loadingOverlay.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+.loading-star{
+  position:relative;width:70px;height:70px;
+}
+.loading-star::before{
+  content:'';position:absolute;inset:0;margin:auto;width:16px;height:16px;border-radius:50%;
+  background:#fdf6dd;box-shadow:0 0 20px 6px rgba(240,226,174,.8);
+  animation:loadingPulse 1.6s ease-in-out infinite;
+}
+.loading-star::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle, rgba(240,226,174,.35) 0%, transparent 70%);
+  animation:loadingRing 1.6s ease-in-out infinite;
+}
+@keyframes loadingPulse{0%,100%{transform:scale(1);opacity:.85;}50%{transform:scale(1.3);opacity:1;}}
+@keyframes loadingRing{0%{transform:scale(.6);opacity:.6;}70%{transform:scale(1.8);opacity:0;}100%{transform:scale(1.8);opacity:0;}}
+.loading-text{
+  font-family:var(--font-display);
+  font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-primary);
+  text-shadow:0 0 12px rgba(240,226,174,.5);
+  opacity:.9;
+}
+.loading-dots span{animation:loadingDots 1.4s infinite;opacity:0;}
+.loading-dots span:nth-child(2){animation-delay:.2s;}
+.loading-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes loadingDots{0%,100%{opacity:0;}50%{opacity:1;}}
+@media (prefers-reduced-motion: reduce){
+  .loading-star::before,.loading-star::after,.loading-dots span{animation:none !important;}
+}
+
+.photo-node{
+  position:absolute;
+  width:min(360px,80vw);
+  transform:translate(-50%,0);
+  transform-origin:center center;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s linear;
+  text-align:center;
+  padding-top:36px;
+}
+.photo-frame{
+  position:relative;
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid rgba(240,226,174,.35);
+  box-shadow:0 0 0 1px rgba(240,226,174,.08), 0 30px 60px rgba(0,0,0,.65), 0 0 60px rgba(240,226,174,.15);
+}
+.photo-frame img{
+  display:block;
+  width:100%;
+  height:auto;
+  filter:saturate(1.03) contrast(1.02);
+  transform:scale(1);
+  transform-origin:center center;
+  will-change:transform;
+}
+.photo-frame::after{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(180deg, rgba(4,5,10,0) 60%, rgba(4,5,10,.55) 100%);
+  pointer-events:none;
+}
+.photo-caption{
+  margin-top:14px;
+  font-family:var(--font-display);
+  font-size:13px;
+  letter-spacing:.03em;
+  color:var(--color-primary);
+  text-shadow:0 0 12px rgba(240,226,174,.5);
+  font-style:italic;
+}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="loading-star"></div>
+  <div class="loading-text">Accendendo le stelle<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
+</div>
+
+<canvas id="canvas3d"></canvas>
+<div id="cards-layer"></div>
+
+<div class="wall-header">
+  <span class="eyebrow">Grazie Daniele</span>
+  <h1>La costellazione dei ricordi</h1>
+  <p>Ogni pensiero è una luce sospesa nello spazio. Scorri per attraversare la costellazione e scoprirle una a una.</p>
+</div>
+
+<div id="loadingState"></div>
+<div class="scroll-spacer" id="scrollSpacer"></div>
+
+<div class="scroll-hint" id="scrollHint">
+  <span>Scorri</span>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+</div>
+
+<p class="wall-footer">— Un grazie di cuore da tutto il team —</p>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script>
+const PHOTO_PATHS = [
+  'foto1.jpg',
+  'foto2.jpg',
+  'foto3.jpg',
+  'foto4.jpg'
+];
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbys6yLKk1Tj5APJME6x3hj3x2uJ9OZWah7T40BhPNfxsoZOiOnRszXvuKdPlCzcmvYA/exec';
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+let scene, camera, renderer;
+let starLayers = [];
+let nodeMeshes = [], nodePositions = [], cardEls = [];
+let photoIndices = [];
+let finaleEl, finalePos;
+const DEPTH_STEP = 1400;
+const FINALE_GAP = 1800;
+let totalDepth = 0;
+
+function createStarTexture(){
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,size,size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+const starTexture = createStarTexture();
+
+function makeStarLayer(count, spread, size, opacity, color){
+  const positions = new Float32Array(count*3);
+  const sizes = new Float32Array(count);
+  for(let i=0;i<count;i++){
+    positions[i*3] = (Math.random()-0.5)*spread;
+    positions[i*3+1] = (Math.random()-0.5)*spread;
+    positions[i*3+2] = (Math.random()-0.5)*spread;
+    sizes[i] = size * (0.6 + Math.random()*0.8);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  const mat = new THREE.PointsMaterial({
+    color:color, size:size*2.6, map:starTexture, transparent:true, opacity:opacity,
+    sizeAttenuation:true, depthWrite:false, blending:THREE.AdditiveBlending
+  });
+  const pts = new THREE.Points(geo, mat);
+  camera.add(pts);
+  return pts;
+}
+
+function initThree(){
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x04050a, 0.00035);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 9000);
+  camera.position.set(0,0,0);
+  scene.add(camera);
+
+  renderer = new THREE.WebGLRenderer({canvas: document.getElementById('canvas3d'), antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  starLayers.push(makeStarLayer(9000, 7000, 1.4, 0.55, 0xffffff));
+  starLayers.push(makeStarLayer(4000, 5000, 2.0, 0.75, 0xf0e2ae));
+  starLayers.push(makeStarLayer(1800, 3200, 3.0, 0.9, 0xffffff));
+
+  window.addEventListener('resize', onResize);
+}
+
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function buildConstellation(messages){
+  const PHOTO_EVERY = 3;
+  let slotIndex = 0;
+  let photoCounter = 0;
+  const cardsLayer = document.getElementById('cards-layer');
+  const coreGeo = new THREE.SphereGeometry(3.2, 16, 16);
+
+  messages.forEach(function(entry, i){
+    const side = i % 2 === 0 ? -1 : 1;
+    const x = side * (170 + Math.random()*90);
+    const y = Math.sin(i*0.9) * 90 + (Math.random()-0.5)*40;
+    slotIndex++;
+    const z = -slotIndex * DEPTH_STEP;
+    nodePositions.push(new THREE.Vector3(x,y,z));
+
+    const coreMat = new THREE.MeshBasicMaterial({color:0xfffaf0});
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    core.position.set(x,y,z);
+    scene.add(core);
+
+    const glowMat = new THREE.SpriteMaterial({
+      map:starTexture, color:0xf7e9bd, transparent:true, opacity:0.85,
+      blending:THREE.AdditiveBlending, depthWrite:false
+    });
+    const glow = new THREE.Sprite(glowMat);
+    glow.scale.set(70,70,1);
+    glow.position.set(x,y,z);
+    scene.add(glow);
+
+    nodeMeshes.push({core:core, glow:glow, seed:Math.random()*10});
+
+    const halo = new THREE.PointLight(0xf7e9bd, 3.2, 420);
+    halo.position.set(x,y,z);
+    scene.add(halo);
+
+    const orb = document.createElement('div');
+    orb.className = 'orb';
+    orb.innerHTML =
+      '<div class="orb-halo"></div>' +
+      '<div class="orb-name">' + escapeHtml(entry.name) + '</div>' +
+      '<div class="orb-quote">' + escapeHtml(entry.message) + '</div>';
+    cardsLayer.appendChild(orb);
+    cardEls.push(orb);
+
+    if((i+1) % PHOTO_EVERY === 0 && (i+1) < messages.length){
+      slotIndex++;
+      const pz = -slotIndex * DEPTH_STEP;
+      nodePositions.push(new THREE.Vector3(0, 0, pz));
+
+      const photoGlowMat = new THREE.SpriteMaterial({
+        map:starTexture, color:0xf7e9bd, transparent:true, opacity:0.5,
+        blending:THREE.AdditiveBlending, depthWrite:false
+      });
+      const photoGlow = new THREE.Sprite(photoGlowMat);
+      photoGlow.scale.set(160,160,1);
+      photoGlow.position.set(0,0,pz);
+      scene.add(photoGlow);
+      const photoLight = new THREE.PointLight(0xf7e9bd, 2, 500);
+      photoLight.position.set(0,0,pz);
+      scene.add(photoLight);
+      nodeMeshes.push({core:photoGlow, glow:photoGlow, seed:Math.random()*10});
+
+      const photoSrc = PHOTO_PATHS[photoCounter % PHOTO_PATHS.length];
+      photoCounter++;
+      const photoNode = document.createElement('div');
+      photoNode.className = 'photo-node';
+      photoNode.innerHTML =
+        '<div class="photo-frame"><img src="' + photoSrc + '" alt="Ricordo insieme" onerror="this.closest(\'.photo-node\').style.display=\'none\';"></div>' +
+        '<div class="photo-caption">Un momento insieme</div>';
+      cardsLayer.appendChild(photoNode);
+      photoIndices.push(cardEls.length);
+      cardEls.push(photoNode);
+    }
+  });
+
+  const totalSlots = slotIndex;
+  totalDepth = totalSlots * DEPTH_STEP + FINALE_GAP + window.innerHeight;
+  document.getElementById('scrollSpacer').style.height = totalDepth + 'px';
+
+  const finaleZ = -totalSlots * DEPTH_STEP - FINALE_GAP;
+  finalePos = new THREE.Vector3(0, 0, finaleZ);
+
+  const finaleGlowMat = new THREE.SpriteMaterial({
+    map:starTexture, color:0xfff4d6, transparent:true, opacity:0.9,
+    blending:THREE.AdditiveBlending, depthWrite:false
+  });
+  const finaleGlow = new THREE.Sprite(finaleGlowMat);
+  finaleGlow.scale.set(240,240,1);
+  finaleGlow.position.copy(finalePos);
+  scene.add(finaleGlow);
+  const finaleLight = new THREE.PointLight(0xfff4d6, 5, 900);
+  finaleLight.position.copy(finalePos);
+  scene.add(finaleLight);
+  nodeMeshes.push({core:finaleGlow, glow:finaleGlow, seed:0, isFinale:true});
+
+  finaleEl = document.createElement('div');
+  finaleEl.className = 'finale';
+  finaleEl.innerHTML =
+    '<div class="finale-halo"></div>' +
+    '<div class="finale-line1">Le stelle custodiranno questi ricordi,</div>' +
+    '<div class="finale-line2">Buon vento, Daniele.</div>' +
+    '<div class="finale-line3">Che questa nuova avventura brilli quanto i pensieri di chi ti ha accompagnato fin qui.</div>';
+  cardsLayer.appendChild(finaleEl);
+}
+
+function projectAndUpdateCards(){
+  const halfW = window.innerWidth/2, halfH = window.innerHeight/2;
+  nodePositions.forEach(function(pos, i){
+    const card = cardEls[i];
+    const projected = pos.clone().project(camera);
+    const behindCamera = projected.z > 1;
+    const dist = camera.position.distanceTo(pos);
+    if(behindCamera || dist > 2200){
+      card.style.opacity = 0;
+      return;
+    }
+    const scale = Math.max(0.4, Math.min(1.2, 900/dist));
+    const x = (projected.x * halfW) + halfW;
+    const y = -(projected.y * halfH) + halfH;
+    const opacity = dist < 1900 ? Math.max(0, Math.min(1, 1 - (dist-300)/1600)) : 0;
+    const isPhoto = photoIndices.indexOf(i) !== -1;
+    let finalScale = scale;
+    let finalOpacity = opacity;
+    if(isPhoto){
+      finalScale = Math.max(0.35, Math.min(4.2, 1500/dist));
+      finalOpacity = dist < 2000 ? Math.max(0, Math.min(1, 1 - (dist-260)/1800)) : 0;
+      if(dist < 90){
+        finalOpacity = Math.max(0, dist/90);
+      }
+    }
+    card.style.left = x + 'px';
+    card.style.top = y + 'px';
+    card.style.transform = 'translate(-50%,0) scale(' + finalScale.toFixed(3) + ')';
+    card.style.opacity = finalOpacity.toFixed(3);
+    card.style.zIndex = Math.round(2000-dist);
+  });
+
+  if(finaleEl && finalePos){
+    const projected = finalePos.clone().project(camera);
+    const behindCamera = projected.z > 1;
+    const dist = camera.position.distanceTo(finalePos);
+    if(behindCamera || dist > 2600){
+      finaleEl.style.opacity = 0;
+    } else {
+      const scale = Math.max(0.5, Math.min(1.3, 1400/dist));
+      const x = (projected.x * halfW) + halfW;
+      const y = -(projected.y * halfH) + halfH;
+      const opacity = Math.max(0, Math.min(1, 1 - (dist-500)/2000));
+      finaleEl.style.left = x + 'px';
+      finaleEl.style.top = y + 'px';
+      finaleEl.style.transform = 'translate(-50%,-50%) scale(' + scale.toFixed(3) + ')';
+      finaleEl.style.opacity = opacity.toFixed(3);
+      finaleEl.style.zIndex = 3000;
+    }
+  }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  starLayers.forEach(function(layer, idx){ layer.rotation.y += 0.00004 * (idx+1); layer.rotation.x += 0.00002*(idx+1); });
+  if(nodeMeshes.length){
+    const t = Date.now()*0.0006;
+    nodeMeshes.forEach(function(m){
+      const flicker = 1 + Math.sin(t*3 + m.seed)*0.045 + Math.sin(t*7.3 + m.seed*2)*0.02;
+      if(m.glow.material && m.glow.material.opacity !== undefined){
+        const baseOpacity = m.isFinale ? 0.9 : 0.85;
+        m.glow.material.opacity = baseOpacity * flicker;
+      }
+    });
+    projectAndUpdateCards();
+  }
+  renderer.render(scene, camera);
+}
+
+function onScroll(){
+  const maxScroll = document.body.scrollHeight - window.innerHeight;
+  const progress = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+  camera.position.z = -progress * totalDepth;
+  const hint = document.getElementById('scrollHint');
+  if(hint) hint.style.opacity = progress > 0.03 ? '0' : '0.85';
+}
+
+function hideLoadingOverlay(){
+  const overlay = document.getElementById('loadingOverlay');
+  if(overlay) overlay.classList.add('hidden');
+  const header = document.querySelector('.wall-header');
+  const hint = document.getElementById('scrollHint');
+  const footer = document.querySelector('.wall-footer');
+  if(header) header.classList.add('revealed');
+  if(hint) hint.classList.add('revealed');
+  if(footer) footer.classList.add('revealed');
+}
+
+initThree();
+animate();
+
+function startExperience(messages){
+  if(!messages || messages.length === 0){
+    document.getElementById('loadingState').innerHTML = '<div class="empty-state"><h3>Ancora nessun pensiero</h3><p>I messaggi lasciati sulla pagina di saluto appariranno qui automaticamente.</p></div>';
+    hideLoadingOverlay();
+    return;
+  }
+  buildConstellation(messages);
+  window.addEventListener('scroll', onScroll, {passive:true});
+  hideLoadingOverlay();
+}
+
+fetch(SCRIPT_URL)
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data.status === 'ok' && Array.isArray(data.messages)){
+      startExperience(data.messages);
+    } else {
+      startExperience([]);
+    }
+  })
+  .catch(function(){
+    document.getElementById('loadingState').innerHTML = '<div class="empty-state"><h3>Impossibile caricare i pensieri</h3><p>Controlla la connessione o riprova più tardi.</p></div>';
+    hideLoadingOverlay();
+  });
+</script>
+
+</body>
+</html>
