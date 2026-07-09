@@ -63,6 +63,11 @@ html,body{background:var(--color-bg);color:var(--color-text);font-family:var(--f
   color:#fdfcf7;
   text-shadow:0 2px 20px rgba(0,0,0,.9), 0 0 40px rgba(0,0,0,.6);
 }
+@media (max-width:700px){
+  .orb{width:min(320px,84vw);}
+  .orb-name{font-size:16px;margin-bottom:16px;}
+  .orb-quote{font-size:19px;line-height:1.5;}
+}
 
 .finale{
   position:absolute;
@@ -331,10 +336,13 @@ function buildConstellation(messages){
   let photoCounter = 0;
   const cardsLayer = document.getElementById('cards-layer');
   const coreGeo = new THREE.SphereGeometry(3.2, 16, 16);
+  const isMobile = window.innerWidth < 700;
+  const lateralBase = isMobile ? 60 : 170;
+  const lateralRange = isMobile ? 30 : 90;
 
   messages.forEach(function(entry, i){
     const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (170 + Math.random()*90);
+    const x = side * (lateralBase + Math.random()*lateralRange);
     const y = Math.sin(i*0.9) * 90 + (Math.random()-0.5)*40;
     slotIndex++;
     const z = -slotIndex * DEPTH_STEP;
